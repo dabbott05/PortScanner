@@ -1,51 +1,49 @@
-import nmap
+import socket
+import threading
+import time
+from queue import Queue
 
-def scan_target(target, ports):
-    # Initialize the nmap scanner
-    scanner = nmap.PortScanner()
-    print(f"Scanning {target} on ports {ports}...")
-    
+def scan_port(ip, port, results):
     try:
-        scanner.scan(hosts=target, ports=ports, arguments='-sV') # -sV for service version detection
-        
-        if not scanner.all_hosts():
-            print("No hosts found or ports are closed.")
-            return
-        
-        for host in scanner.all_hosts():
-            # Host information
-            print(f"\nHost: {host} ({scanner[host].hostname()})")
-            # Host state
-            print(f"State: {scanner[host].state()}")
-            for proto in scanner[host].all_protocols():
-                # Protocol information
-                print(f"\nProtocol: {proto}")
-                ports = scanner[host][proto].keys()
-                for port in sorted(ports):
-                    print(f"Port: {port} | State: {scanner[host][proto][port]['state']} | Service: {scanner[host][proto][port]['name']}")
-    # Handle exceptions
-    except Exception as e:
-        print(f"Error during scanning: {e}")
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(1)
+            if s.connect_ex((ip, port)) == 0: # Returns 0 if the operation succeeded
+                results.append((port, "Open"))
+    except:
+        pass
 
 def main():
-    # Get user input for target and ports
-    target = input("Enter the target IP address or range (e.g., 192.168.1.1): ").strip()
-    ports = input("Enter the port range to scan (e.g., 1-1024): ").strip()
+    ip = input("Enter the target IP address: ").strip()
+    port_range = input("Enter port range (e.g., 1-1000 or press Enter for 1-5000): ").strip() or "1-5000"
     
-    if not target:
-        print("Error: A target IP address or range is required.")
-        return
+    start_port, end_port = map(int, port_range.split("-")) # Split the range and convert to integers
+    results = []
+    threads = []
     
-    # Use default ports if the user provides no input
-    if not ports:
-        ports = "1-5000"
-        print("No port range specified. Defaulting to the first 5000 ports.")
+    print(f"Scanning {ip} from port {start_port} to {end_port}...")
+    start_time = time.time()
     
-    # Debugging output for user input
-    print(f"DEBUG: Target = {target}, Ports = {ports}")
+    for port in range(start_port, end_port + 1):
+        thread = threading.Thread(target=scan_port, args=(ip, port, results))# Create a thread for each port
+        threads.append(thread)
+        thread.start()
+        
+        # Avoid too many threads at once
+        if len(threads) > 100:
+            for t in threads:
+                t.join()
+            threads = []
     
-    # Perform the scan
-    scan_target(target, ports)
+    for t in threads:
+        t.join()
+    
+    # Save results to file
+    with open(f"scan_results_{ip}.txt", "w") as f:
+        for port, status in results:
+            f.write(f"Port {port}: {status}\n")
+    
+    print(f"Scan completed in {time.time() - start_time:.2f} seconds.")
+    print(f"Results saved to scan_results_{ip}.txt.")
 
 if __name__ == "__main__":
     main()
