@@ -23,12 +23,15 @@ Easy-to-use command-line interface for user input.
 ### Error Handling: 
 Gracefully handles errors like invalid IP addresses and unreachable hosts.
 
-## Requirements
-
-Python 3.x
-
-socket library (comes pre-installed with Python)
-
+## Libraries Used
+```
+from scapy.all import IP, TCP, sr1, send
+import socket
+import threading
+import time
+import random
+import sys
+```
 ## Installation
 
 Clone the repository or download the script:
